@@ -124,6 +124,17 @@ namespace TomatoFighters.Editor.VFX
             AssetDatabase.Refresh();
 
             var shader = LoadOrCreateShader(shaderAssetPath, name);
+
+            // Validate shader compiled successfully — purple squares come from broken shaders
+            if (ShaderUtil.ShaderHasError(shader))
+            {
+                Debug.LogWarning($"[VFX] Generated shader '{name}' has compile errors. Falling back to default URP particle shader.");
+                string fallbackCode = string.Format(FALLBACK_SHADER_TEMPLATE, name);
+                File.WriteAllText(diskPath, fallbackCode);
+                AssetDatabase.Refresh();
+                shader = LoadOrCreateShader(shaderAssetPath, name);
+            }
+
             var mat = new Material(shader);
 
             // Assign default particle texture so particles render as soft circles

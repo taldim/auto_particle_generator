@@ -350,6 +350,19 @@ COMMON COMPILE ERRORS TO AVOID:
 - Using 'fixed' type — URP uses half/float only
 - Forgetting to declare _MainTex_ST when using TRANSFORM_TEX macro
 
+MANDATORY HLSL DECLARATION TEMPLATE — copy this pattern exactly for every shader:
+
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_ST;
+                half4 _Color;
+                // ... declare ALL other non-texture properties here
+            CBUFFER_END
+
+Every property in the Properties block MUST appear inside CBUFFER_START or as TEXTURE2D/SAMPLER above it. If you add _GlowColor to Properties, you MUST add half4 _GlowColor; inside the CBUFFER. Missing ANY declaration causes purple squares.
+
 BLENDING GUIDE:
 - Additive (fire, energy, glow, electric): Blend One One
 - Alpha blend (smoke, dust, blood): Blend SrcAlpha OneMinusSrcAlpha
@@ -395,6 +408,7 @@ CRITICAL RULES — violating any of these causes compile errors:
 - Use half4/float4 NOT fixed4
 - Use TEXTURE2D + SAMPLER + SAMPLE_TEXTURE2D NOT sampler2D/tex2D
 - EVERY property in the Properties block MUST also be declared as a variable inside the HLSLPROGRAM block. URP does NOT auto-bind properties — missing declarations cause 'undeclared identifier' errors. Example: if Properties has _Color1 (""Color 1"", Color) = (1,0,0,1), you MUST add half4 _Color1; inside HLSLPROGRAM. For textures: TEXTURE2D(_TexName); SAMPLER(sampler_TexName); float4 _TexName_ST;
+- Wrap ALL non-texture properties in CBUFFER_START(UnityPerMaterial) / CBUFFER_END — missing CBUFFER causes purple squares
 - Support vertex colors (for particle tinting)
 - Additive blending for fire/energy/glow, alpha blend for smoke/dust
 - Keep it simple and performant";

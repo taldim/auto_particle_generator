@@ -877,8 +877,9 @@ namespace TomatoFighters.Editor.VFX
 
             if (material != null)
             {
-                var renderer = go.GetComponent<ParticleSystemRenderer>();
-                if (renderer != null)
+                // Assign material to ALL particle system renderers (main + sub-emitters)
+                var renderers = go.GetComponentsInChildren<ParticleSystemRenderer>(true);
+                foreach (var renderer in renderers)
                 {
                     renderer.material = material;
                     renderer.trailMaterial = material;
