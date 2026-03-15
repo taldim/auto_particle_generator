@@ -5,7 +5,9 @@ namespace TomatoFighters.Editor.VFX
 {
     public static class ParticleSystemApplier
     {
-        public static GameObject Apply(ParticleConfig config, string name)
+        private const int MAX_SUB_EMITTER_DEPTH = 2;
+
+        public static GameObject Apply(ParticleConfig config, string name, int depth = 0)
         {
             var go = new GameObject(name);
             var ps = go.AddComponent<ParticleSystem>();
@@ -90,11 +92,10 @@ namespace TomatoFighters.Editor.VFX
                 noise.octaveCount = Mathf.Clamp(config.noise.octaves, 1, 4);
                 noise.scrollSpeed = config.noise.scrollSpeed;
                 noise.damping = config.noise.damping > 0;
-                // Separate axes for richer motion
                 noise.separateAxes = true;
                 noise.strengthX = config.noise.strength;
                 noise.strengthY = config.noise.strength;
-                noise.strengthZ = config.noise.strength * 0.5f; // less Z for 2D
+                noise.strengthZ = config.noise.strength * 0.5f;
             }
 
             // Rotation over Lifetime
@@ -132,6 +133,216 @@ namespace TomatoFighters.Editor.VFX
                     trails.widthOverTrail = BuildCurve(config.trails.widthCurve);
             }
 
+            // --- Task A1: Force over Lifetime ---
+            if (config.forceOverLifetime != null &&
+                (HasPoints(config.forceOverLifetime.x) ||
+                 HasPoints(config.forceOverLifetime.y) ||
+                 HasPoints(config.forceOverLifetime.z)))
+            {
+                var force = ps.forceOverLifetime;
+                force.enabled = true;
+                force.space = ParseSimulationSpace(config.forceOverLifetime.space);
+                force.randomized = config.forceOverLifetime.randomized;
+
+                if (HasPoints(config.forceOverLifetime.x))
+                    force.x = BuildCurve(config.forceOverLifetime.x);
+                if (HasPoints(config.forceOverLifetime.y))
+                    force.y = BuildCurve(config.forceOverLifetime.y);
+                if (HasPoints(config.forceOverLifetime.z))
+                    force.z = BuildCurve(config.forceOverLifetime.z);
+            }
+
+            // --- Task A1: Limit Velocity over Lifetime ---
+            if (config.limitVelocityOverLifetime != null)
+            {
+                bool hasCurve = HasPoints(config.limitVelocityOverLifetime.speedCurve);
+                bool hasSpeed = config.limitVelocityOverLifetime.speed > 0;
+                bool hasDrag = config.limitVelocityOverLifetime.drag > 0;
+
+                if (hasCurve || hasSpeed || hasDrag)
+                {
+                    var lv = ps.limitVelocityOverLifetime;
+                    lv.enabled = true;
+                    lv.space = ParseSimulationSpace(config.limitVelocityOverLifetime.space);
+                    lv.dampen = config.limitVelocityOverLifetime.dampen;
+
+                    if (hasCurve)
+                        lv.limit = BuildCurve(config.limitVelocityOverLifetime.speedCurve);
+                    else
+                        lv.limit = config.limitVelocityOverLifetime.speed;
+
+                    lv.drag = config.limitVelocityOverLifetime.drag;
+                    lv.multiplyDragByParticleSize = config.limitVelocityOverLifetime.multiplyDragBySize;
+                    lv.multiplyDragByParticleVelocity = config.limitVelocityOverLifetime.multiplyDragByVelocity;
+                }
+            }
+
+            // --- Task A1: Inherit Velocity ---
+            if (config.inheritVelocity != null && config.inheritVelocity.multiplier != 0)
+            {
+                var iv = ps.inheritVelocity;
+                iv.enabled = true;
+                iv.mode = ParseInheritVelocityMode(config.inheritVelocity.mode);
+                iv.curve = config.inheritVelocity.multiplier;
+            }
+
+            // --- Task A1: Lifetime by Emitter Speed ---
+            if (config.lifetimeByEmitterSpeed != null && HasPoints(config.lifetimeByEmitterSpeed.curve))
+            {
+                var lbes = ps.lifetimeByEmitterSpeed;
+                lbes.enabled = true;
+                lbes.curve = BuildCurve(config.lifetimeByEmitterSpeed.curve);
+                lbes.range = new Vector2(
+                    config.lifetimeByEmitterSpeed.speedRangeMin,
+                    config.lifetimeByEmitterSpeed.speedRangeMax);
+            }
+
+            // --- Task A2: Color by Speed ---
+            if (config.colorBySpeed?.gradient != null && config.colorBySpeed.gradient.Length > 0)
+            {
+                var cbs = ps.colorBySpeed;
+                cbs.enabled = true;
+                cbs.color = BuildGradient(config.colorBySpeed.gradient);
+                cbs.range = new Vector2(
+                    config.colorBySpeed.speedRangeMin,
+                    config.colorBySpeed.speedRangeMax);
+            }
+
+            // --- Task A2: Size by Speed ---
+            if (config.sizeBySpeed != null && HasPoints(config.sizeBySpeed.curve))
+            {
+                var sbs = ps.sizeBySpeed;
+                sbs.enabled = true;
+                sbs.size = BuildCurve(config.sizeBySpeed.curve);
+                sbs.range = new Vector2(
+                    config.sizeBySpeed.speedRangeMin,
+                    config.sizeBySpeed.speedRangeMax);
+            }
+
+            // --- Task A2: Rotation by Speed ---
+            if (config.rotationBySpeed != null)
+            {
+                bool hasCurve = HasPoints(config.rotationBySpeed.curve);
+                bool hasConstant = config.rotationBySpeed.angularVelocity != 0;
+
+                if (hasCurve || hasConstant)
+                {
+                    var rbs = ps.rotationBySpeed;
+                    rbs.enabled = true;
+                    rbs.range = new Vector2(
+                        config.rotationBySpeed.speedRangeMin,
+                        config.rotationBySpeed.speedRangeMax);
+
+                    if (hasCurve)
+                        rbs.z = BuildCurve(config.rotationBySpeed.curve, Mathf.Deg2Rad);
+                    else
+                        rbs.z = config.rotationBySpeed.angularVelocity * Mathf.Deg2Rad;
+                }
+            }
+
+            // --- Task A3: Texture Sheet Animation ---
+            if (config.textureSheetAnimation != null && config.textureSheetAnimation.tilesX > 1 || config.textureSheetAnimation != null && config.textureSheetAnimation.tilesY > 1)
+            {
+                var tsa = ps.textureSheetAnimation;
+                tsa.enabled = true;
+                tsa.numTilesX = config.textureSheetAnimation.tilesX;
+                tsa.numTilesY = config.textureSheetAnimation.tilesY;
+                tsa.animation = ParseAnimationMode(config.textureSheetAnimation.animationMode);
+                tsa.cycleCount = config.textureSheetAnimation.cycles;
+
+                if (tsa.animation == ParticleSystemAnimationType.SingleRow)
+                {
+                    tsa.rowMode = ParseRowMode(config.textureSheetAnimation.rowMode);
+                    if (tsa.rowMode == ParticleSystemAnimationRowMode.Custom)
+                        tsa.rowIndex = config.textureSheetAnimation.rowIndex;
+                }
+
+                if (HasPoints(config.textureSheetAnimation.frameOverTime))
+                {
+                    tsa.frameOverTime = BuildCurve(config.textureSheetAnimation.frameOverTime);
+                }
+                else if (config.textureSheetAnimation.fps > 0)
+                {
+                    // Linear 0-1 curve — particle lifetime controls actual playback speed
+                    tsa.frameOverTime = new ParticleSystem.MinMaxCurve(1f,
+                        new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f)));
+                }
+
+                if (config.textureSheetAnimation.startFrame > 0)
+                    tsa.startFrame = config.textureSheetAnimation.startFrame;
+            }
+
+            // --- Task A4: Lights ---
+            if (config.lights != null)
+            {
+                var lights = ps.lights;
+                lights.enabled = true;
+                lights.ratio = config.lights.ratio;
+                lights.useParticleColor = config.lights.useParticleColor;
+                lights.sizeAffectsRange = config.lights.sizeAffectsRange;
+                lights.alphaAffectsIntensity = config.lights.alphaAffectsIntensity;
+                lights.rangeMultiplier = config.lights.rangeMultiplier;
+                lights.intensityMultiplier = config.lights.intensityMultiplier;
+                lights.maxLights = config.lights.maxLights;
+
+                // Create a child light for the module to clone per particle
+                var lightGo = new GameObject("ParticleLight");
+                lightGo.transform.SetParent(go.transform, false);
+                var light = lightGo.AddComponent<Light>();
+                light.type = LightType.Point;
+                light.range = 2f;
+                light.intensity = 1f;
+                lights.light = light;
+                lightGo.SetActive(false);
+            }
+
+            // --- Task A4: Collision ---
+            if (config.collision != null)
+            {
+                var col = ps.collision;
+                col.enabled = true;
+                col.type = ParseCollisionType(config.collision.type);
+                col.mode = ParseCollisionMode(config.collision.mode);
+                col.bounce = config.collision.bounce;
+                col.lifetimeLoss = config.collision.lifetimeLoss;
+                col.dampen = config.collision.dampen;
+                col.radiusScale = config.collision.radiusScale;
+                col.minKillSpeed = config.collision.minKillSpeed;
+                col.sendCollisionMessages = config.collision.sendCollisionMessages;
+            }
+
+            // --- Task A5: Sub Emitters ---
+            if (depth < MAX_SUB_EMITTER_DEPTH &&
+                config.subEmitters != null && config.subEmitters.Length > 0)
+            {
+                var subEmitters = ps.subEmitters;
+                subEmitters.enabled = true;
+
+                for (int i = 0; i < config.subEmitters.Length; i++)
+                {
+                    var entry = config.subEmitters[i];
+                    if (entry.config == null) continue;
+
+                    // Recursively create child particle system
+                    var childGo = Apply(entry.config, $"{name}_Sub{i}", depth + 1);
+                    childGo.transform.SetParent(go.transform, false);
+
+                    var childPS = childGo.GetComponent<ParticleSystem>();
+                    var childMain = childPS.main;
+                    childMain.playOnAwake = false;
+
+                    // Sub emitters are triggered by parent, not self-emitting
+                    var childEmission = childPS.emission;
+                    childEmission.enabled = false;
+
+                    subEmitters.AddSubEmitter(
+                        childPS,
+                        ParseSubEmitterType(entry.trigger),
+                        ParseSubEmitterProperties(entry.inheritProperties),
+                        entry.emitProbability);
+                }
+            }
+
             // Renderer
             var renderer = go.GetComponent<ParticleSystemRenderer>();
             renderer.material = AssetDatabase.GetBuiltinExtraResource<Material>(
@@ -146,11 +357,10 @@ namespace TomatoFighters.Editor.VFX
                 renderer.normalDirection = config.renderer.normalDirection;
             }
 
-            // If trails are enabled, assign trail material too
+            // Trail material uses the same material as the main renderer
             if (config.trails != null && config.trails.lifetime > 0)
             {
-                renderer.trailMaterial = AssetDatabase.GetBuiltinExtraResource<Material>(
-                    "Default-Particle.mat");
+                renderer.trailMaterial = renderer.material;
             }
 
             return go;
@@ -218,6 +428,81 @@ namespace TomatoFighters.Editor.VFX
                 case "oldestinfront": return ParticleSystemSortMode.OldestInFront;
                 case "youngestinfront": return ParticleSystemSortMode.YoungestInFront;
                 default: return ParticleSystemSortMode.None;
+            }
+        }
+
+        private static ParticleSystemInheritVelocityMode ParseInheritVelocityMode(string mode)
+        {
+            if (string.IsNullOrEmpty(mode)) return ParticleSystemInheritVelocityMode.Initial;
+            switch (mode.ToLower())
+            {
+                case "current": return ParticleSystemInheritVelocityMode.Current;
+                default: return ParticleSystemInheritVelocityMode.Initial;
+            }
+        }
+
+        private static ParticleSystemAnimationType ParseAnimationMode(string mode)
+        {
+            if (string.IsNullOrEmpty(mode)) return ParticleSystemAnimationType.WholeSheet;
+            switch (mode.ToLower())
+            {
+                case "singlerow": return ParticleSystemAnimationType.SingleRow;
+                default: return ParticleSystemAnimationType.WholeSheet;
+            }
+        }
+
+        private static ParticleSystemAnimationRowMode ParseRowMode(string mode)
+        {
+            if (string.IsNullOrEmpty(mode)) return ParticleSystemAnimationRowMode.Random;
+            switch (mode.ToLower())
+            {
+                case "custom": return ParticleSystemAnimationRowMode.Custom;
+                default: return ParticleSystemAnimationRowMode.Random;
+            }
+        }
+
+        private static ParticleSystemCollisionType ParseCollisionType(string type)
+        {
+            if (string.IsNullOrEmpty(type)) return ParticleSystemCollisionType.World;
+            switch (type.ToLower())
+            {
+                case "planes": return ParticleSystemCollisionType.Planes;
+                default: return ParticleSystemCollisionType.World;
+            }
+        }
+
+        private static ParticleSystemCollisionMode ParseCollisionMode(string mode)
+        {
+            if (string.IsNullOrEmpty(mode)) return ParticleSystemCollisionMode.Collision2D;
+            switch (mode.ToLower())
+            {
+                case "3d": return ParticleSystemCollisionMode.Collision3D;
+                default: return ParticleSystemCollisionMode.Collision2D;
+            }
+        }
+
+        private static ParticleSystemSubEmitterType ParseSubEmitterType(string trigger)
+        {
+            if (string.IsNullOrEmpty(trigger)) return ParticleSystemSubEmitterType.Birth;
+            switch (trigger.ToLower())
+            {
+                case "collision": return ParticleSystemSubEmitterType.Collision;
+                case "death": return ParticleSystemSubEmitterType.Death;
+                default: return ParticleSystemSubEmitterType.Birth;
+            }
+        }
+
+        private static ParticleSystemSubEmitterProperties ParseSubEmitterProperties(string props)
+        {
+            if (string.IsNullOrEmpty(props)) return ParticleSystemSubEmitterProperties.InheritNothing;
+            switch (props.ToLower())
+            {
+                case "color": return ParticleSystemSubEmitterProperties.InheritColor;
+                case "size": return ParticleSystemSubEmitterProperties.InheritSize;
+                case "rotation": return ParticleSystemSubEmitterProperties.InheritRotation;
+                case "lifetime": return ParticleSystemSubEmitterProperties.InheritLifetime;
+                case "everything": return ParticleSystemSubEmitterProperties.InheritEverything;
+                default: return ParticleSystemSubEmitterProperties.InheritNothing;
             }
         }
 

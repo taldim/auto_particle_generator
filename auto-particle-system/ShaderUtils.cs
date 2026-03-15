@@ -126,6 +126,16 @@ namespace TomatoFighters.Editor.VFX
             var shader = LoadOrCreateShader(shaderAssetPath, name);
             var mat = new Material(shader);
 
+            // Assign default particle texture so particles render as soft circles
+            // instead of flat squares. URP materials start with a 1x1 white _MainTex.
+            if (mat.HasProperty("_MainTex"))
+            {
+                var defaultTex = AssetDatabase.GetBuiltinExtraResource<Texture2D>(
+                    "Default-Particle.png");
+                if (defaultTex != null)
+                    mat.SetTexture("_MainTex", defaultTex);
+            }
+
             string matPath = $"{SHADER_FOLDER}/{name}_Mat.mat";
             // Overwrite if exists
             var existing = AssetDatabase.LoadAssetAtPath<Material>(matPath);

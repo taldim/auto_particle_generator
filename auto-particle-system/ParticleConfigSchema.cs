@@ -13,6 +13,27 @@ namespace TomatoFighters.Editor.VFX
         public RotationOverLifetimeConfig rotationOverLifetime;
         public TrailsConfig trails;
         public RendererConfig renderer;
+
+        // Task A1: Force & Velocity modules
+        public ForceOverLifetimeConfig forceOverLifetime;
+        public LimitVelocityOverLifetimeConfig limitVelocityOverLifetime;
+        public InheritVelocityConfig inheritVelocity;
+        public LifetimeByEmitterSpeedConfig lifetimeByEmitterSpeed;
+
+        // Task A2: Speed-reactive modules
+        public ColorBySpeedConfig colorBySpeed;
+        public SizeBySpeedConfig sizeBySpeed;
+        public RotationBySpeedConfig rotationBySpeed;
+
+        // Task A3: Texture sheet animation
+        public TextureSheetAnimationConfig textureSheetAnimation;
+
+        // Task A4: Lights & Collision
+        public ParticleLightsConfig lights;
+        public CollisionConfig collision;
+
+        // Task A5: Sub Emitters
+        public SubEmitterEntry[] subEmitters;
     }
 
     [System.Serializable]
@@ -135,5 +156,125 @@ namespace TomatoFighters.Editor.VFX
         public float g = 1f;
         public float b = 1f;
         public float a = 1f;
+    }
+
+    // --- Task A1: Force & Velocity modules ---
+
+    [System.Serializable]
+    public class ForceOverLifetimeConfig
+    {
+        public CurvePoint[] x;
+        public CurvePoint[] y;
+        public CurvePoint[] z;
+        public string space = "Local";
+        public bool randomized;
+    }
+
+    [System.Serializable]
+    public class LimitVelocityOverLifetimeConfig
+    {
+        public float speed = 1f;
+        public CurvePoint[] speedCurve;
+        public float dampen = 0.1f;
+        public float drag;
+        public bool multiplyDragBySize;
+        public bool multiplyDragByVelocity;
+        public string space = "Local";
+    }
+
+    [System.Serializable]
+    public class InheritVelocityConfig
+    {
+        public string mode = "Initial";
+        public float multiplier = 1f;
+    }
+
+    [System.Serializable]
+    public class LifetimeByEmitterSpeedConfig
+    {
+        public CurvePoint[] curve;
+        public float speedRangeMin;
+        public float speedRangeMax = 1f;
+    }
+
+    // --- Task A2: Speed-reactive modules ---
+
+    [System.Serializable]
+    public class ColorBySpeedConfig
+    {
+        public GradientStop[] gradient;
+        public float speedRangeMin;
+        public float speedRangeMax = 1f;
+    }
+
+    [System.Serializable]
+    public class SizeBySpeedConfig
+    {
+        public CurvePoint[] curve;
+        public float speedRangeMin;
+        public float speedRangeMax = 1f;
+    }
+
+    [System.Serializable]
+    public class RotationBySpeedConfig
+    {
+        public float angularVelocity;
+        public CurvePoint[] curve;
+        public float speedRangeMin;
+        public float speedRangeMax = 1f;
+    }
+
+    // --- Task A3: Texture sheet animation ---
+
+    [System.Serializable]
+    public class TextureSheetAnimationConfig
+    {
+        public int tilesX = 1;
+        public int tilesY = 1;
+        public string animationMode = "WholeSheet";
+        public CurvePoint[] frameOverTime;
+        public float startFrame;
+        public int cycles = 1;
+        public string rowMode = "Random";
+        public int rowIndex;
+        public float fps;
+    }
+
+    // --- Task A4: Lights & Collision ---
+
+    [System.Serializable]
+    public class ParticleLightsConfig
+    {
+        public float ratio = 1f;
+        public bool useParticleColor = true;
+        public bool sizeAffectsRange = true;
+        public bool alphaAffectsIntensity = true;
+        public float rangeMultiplier = 1f;
+        public float intensityMultiplier = 1f;
+        public int maxLights = 20;
+    }
+
+    [System.Serializable]
+    public class CollisionConfig
+    {
+        public string type = "World";
+        public string mode = "2D";
+        public float bounce = 0.5f;
+        public float lifetimeLoss;
+        public float dampen = 0.5f;
+        public float radiusScale = 0.5f;
+        public float minKillSpeed;
+        public bool sendCollisionMessages;
+    }
+
+    // --- Task A5: Sub Emitters ---
+
+    [System.Serializable]
+    public class SubEmitterEntry
+    {
+        public string trigger = "Birth";
+        public ParticleConfig config;
+        public string inheritProperties = "Nothing";
+        public float emitProbability = 1f;
     }
 }

@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(__NEW_LINE_315de0ed001aac7d__ echo:*)",
+      "Bash(xargs grep:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "WebSearch",
+      "WebFetch(domain:discussions.unity.com)",
+      "WebFetch(domain:www.gamedeveloper.com)",
+      "WebFetch(domain:sudonull.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:sleepingdaemon.medium.com)",
+      "WebFetch(domain:answers.unity.com)",
+      "Bash(git:*)",
+      "Bash(do echo:*)",
+      "Bash(tr:*)",
+      "Bash(python3:*)",
+      "Bash(sed:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(python:*)",
+      "Bash(echo EXIT_CODE=$?:*)",
+      "Bash(cp:*)",
+      "Read(//tmp/**)",
+      "Bash(comm:*)",
+      "Bash(do:*)",
+      "Bash(printf VFX_API_KEY=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\\\\n:*)",
+      "WebFetch(domain:openrouter.ai)",
+      "Bash(rm:*)"
+    ]
+  }
+}

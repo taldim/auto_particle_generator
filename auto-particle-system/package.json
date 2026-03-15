@@ -1,0 +1,7 @@
+{
+  "name": "com.evilmagicians.auto-particle-system",
+  "version": "1.0.0",
+  "displayName": "Auto Particle System",
+  "description": "AI-powered VFX particle system and shader generator for Unity",
+  "unity": "6000.0"
+}
