@@ -333,24 +333,27 @@ EFFECT RECIPES (use HDR colors for any glowing effect):
 Write a complete .shader file for the described effect. Return ONLY the shader code, no explanation, no markdown fencing.
 The shader path must be ""TomatoFighters/{ShaderName}"".
 
-CRITICAL RULES — violating any of these causes compile errors:
+CRITICAL RULES — violating any of these causes compile errors (purple squares):
 - NEVER use CGPROGRAM/ENDCG or #include ""UnityCG.cginc"" — legacy built-in, WILL NOT COMPILE
 - ALWAYS use HLSLPROGRAM/ENDHLSL
+- ALWAYS include #pragma vertex vert AND #pragma fragment frag IMMEDIATELY after HLSLPROGRAM — without these the shader WILL NOT COMPILE
 - ALWAYS #include ""Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl""
-- Use TransformObjectToHClip() NOT UnityObjectToClipPos()
+- TransformObjectToHClip() takes float3, NOT float4 — ALWAYS pass positionOS.xyz: TransformObjectToHClip(IN.positionOS.xyz)
 - Use half4/float4 NOT fixed4
 - Use TEXTURE2D + SAMPLER + SAMPLE_TEXTURE2D NOT sampler2D/tex2D
-- EVERY property in the Properties block MUST also be declared as a variable inside the HLSLPROGRAM block. URP does NOT auto-bind properties — missing declarations cause 'undeclared identifier' errors. Example: if Properties has _Color1 (""Color 1"", Color) = (1,0,0,1), you MUST add half4 _Color1; inside HLSLPROGRAM. For textures: TEXTURE2D(_TexName); SAMPLER(sampler_TexName); float4 _TexName_ST;
+- EVERY property in the Properties block MUST also be declared as a variable inside the HLSLPROGRAM block. URP does NOT auto-bind properties — missing declarations cause 'undeclared identifier' errors
+- Wrap ALL non-texture properties in CBUFFER_START(UnityPerMaterial) / CBUFFER_END
+- NEVER use GrabPass or _GrabTexture — not available in URP, causes runtime errors
 - Support vertex colors (for particle tinting)
 
-COMMON COMPILE ERRORS TO AVOID:
-- Missing CBUFFER — wrap all non-texture properties in CBUFFER_START(UnityPerMaterial) / CBUFFER_END
-- Wrong texture sampling — use SAMPLE_TEXTURE2D(_Tex, sampler_Tex, uv) not tex2D
-- Missing SV_Target semantic on frag output
-- Using 'fixed' type — URP uses half/float only
-- Forgetting to declare _MainTex_ST when using TRANSFORM_TEX macro
+MANDATORY PASS STRUCTURE — follow this exact pattern:
 
-MANDATORY HLSL DECLARATION TEMPLATE — copy this pattern exactly for every shader:
+        Pass
+        {{
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #include ""Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl""
 
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);
@@ -361,7 +364,43 @@ MANDATORY HLSL DECLARATION TEMPLATE — copy this pattern exactly for every shad
                 // ... declare ALL other non-texture properties here
             CBUFFER_END
 
-Every property in the Properties block MUST appear inside CBUFFER_START or as TEXTURE2D/SAMPLER above it. If you add _GlowColor to Properties, you MUST add half4 _GlowColor; inside the CBUFFER. Missing ANY declaration causes purple squares.
+            struct Attributes
+            {{
+                float4 positionOS : POSITION;
+                float2 uv : TEXCOORD0;
+                half4 color : COLOR;
+            }};
+
+            struct Varyings
+            {{
+                float4 positionHCS : SV_POSITION;
+                float2 uv : TEXCOORD0;
+                half4 color : COLOR;
+            }};
+
+            Varyings vert(Attributes IN)
+            {{
+                Varyings OUT;
+                OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
+                OUT.uv = TRANSFORM_TEX(IN.uv, _MainTex);
+                OUT.color = IN.color;
+                return OUT;
+            }}
+
+            half4 frag(Varyings IN) : SV_Target
+            {{
+                half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uv);
+                return tex * IN.color * _Color;
+            }}
+            ENDHLSL
+        }}
+
+CRITICAL CHECKLIST before returning shader code:
+1. #pragma vertex vert AND #pragma fragment frag present? (missing = purple squares)
+2. TransformObjectToHClip uses .xyz? (float4 = compile error)
+3. Every Properties entry declared in CBUFFER or as TEXTURE2D/SAMPLER?
+4. CBUFFER_START/CBUFFER_END wrapping non-texture properties?
+5. SV_Target semantic on frag return?
 
 BLENDING GUIDE:
 - Additive (fire, energy, glow, electric): Blend One One
@@ -372,6 +411,7 @@ BLENDING GUIDE:
 PARTICLE-SPECIFIC PATTERNS:
 - Always include vertex color support (COLOR semantic in Attributes/Varyings)
 - Multiply final color by vertex color — this is how particle system tinting works
+- ALL color properties MUST default to white (1,1,1,1). The particle system provides all coloring via vertex colors. Wrong: _GlowColor (""Glow"", Color) = (2.5,0.5,0,1). Right: _GlowColor (""Glow"", Color) = (1,1,1,1). The tool resets all color properties to white anyway.
 - For particle shaders, always use: Tags { ""Queue""=""Transparent"" ""RenderType""=""Transparent"" ""RenderPipeline""=""UniversalPipeline"" }
 - ZWrite Off and Cull Off for particles
 - For animated particles (texture sheet), UVs are already transformed by the particle system
@@ -400,15 +440,17 @@ USE_EXISTING: ShaderName
 If a new shader is needed, return the complete .shader file code. No explanation, no markdown fencing.
 The shader path must be ""TomatoFighters/{ShaderName}"".
 
-CRITICAL RULES — violating any of these causes compile errors:
+CRITICAL RULES — violating any of these causes compile errors (purple squares):
 - NEVER use CGPROGRAM/ENDCG or #include ""UnityCG.cginc"" — legacy built-in, WILL NOT COMPILE
 - ALWAYS use HLSLPROGRAM/ENDHLSL
+- ALWAYS include #pragma vertex vert AND #pragma fragment frag IMMEDIATELY after HLSLPROGRAM
 - ALWAYS #include ""Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl""
-- Use TransformObjectToHClip() NOT UnityObjectToClipPos()
+- TransformObjectToHClip() takes float3, NOT float4 — ALWAYS pass positionOS.xyz
 - Use half4/float4 NOT fixed4
 - Use TEXTURE2D + SAMPLER + SAMPLE_TEXTURE2D NOT sampler2D/tex2D
-- EVERY property in the Properties block MUST also be declared as a variable inside the HLSLPROGRAM block. URP does NOT auto-bind properties — missing declarations cause 'undeclared identifier' errors. Example: if Properties has _Color1 (""Color 1"", Color) = (1,0,0,1), you MUST add half4 _Color1; inside HLSLPROGRAM. For textures: TEXTURE2D(_TexName); SAMPLER(sampler_TexName); float4 _TexName_ST;
-- Wrap ALL non-texture properties in CBUFFER_START(UnityPerMaterial) / CBUFFER_END — missing CBUFFER causes purple squares
+- EVERY property in the Properties block MUST also be declared in HLSLPROGRAM (CBUFFER for scalars, TEXTURE2D/SAMPLER for textures)
+- Wrap ALL non-texture properties in CBUFFER_START(UnityPerMaterial) / CBUFFER_END
+- NEVER use GrabPass or _GrabTexture — not available in URP
 - Support vertex colors (for particle tinting)
 - Additive blending for fire/energy/glow, alpha blend for smoke/dust
 - Keep it simple and performant";

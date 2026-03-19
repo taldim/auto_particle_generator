@@ -63,6 +63,7 @@ namespace TomatoFighters.Editor.VFX
             }
 
             // Velocity over Lifetime
+            // All three axes must use the same mode — set all as curves (zero curve for missing axes)
             if (config.velocityOverLifetime != null &&
                 (HasPoints(config.velocityOverLifetime.x) ||
                  HasPoints(config.velocityOverLifetime.y) ||
@@ -72,14 +73,21 @@ namespace TomatoFighters.Editor.VFX
                 vel.enabled = true;
                 vel.space = ParseSimulationSpace(config.velocityOverLifetime.space);
 
-                if (HasPoints(config.velocityOverLifetime.x))
-                    vel.x = BuildCurve(config.velocityOverLifetime.x);
-                if (HasPoints(config.velocityOverLifetime.y))
-                    vel.y = BuildCurve(config.velocityOverLifetime.y);
-                if (HasPoints(config.velocityOverLifetime.z))
-                    vel.z = BuildCurve(config.velocityOverLifetime.z);
+                vel.x = HasPoints(config.velocityOverLifetime.x)
+                    ? BuildCurve(config.velocityOverLifetime.x) : ZeroCurve();
+                vel.y = HasPoints(config.velocityOverLifetime.y)
+                    ? BuildCurve(config.velocityOverLifetime.y) : ZeroCurve();
+                vel.z = HasPoints(config.velocityOverLifetime.z)
+                    ? BuildCurve(config.velocityOverLifetime.z) : ZeroCurve();
 
-                vel.speedModifier = config.velocityOverLifetime.speedModifier;
+                // Orbital and radial default to Constant mode — force them to Curve mode
+                // so all velocity curves share the same mode (Unity requirement)
+                vel.orbitalX = ZeroCurve();
+                vel.orbitalY = ZeroCurve();
+                vel.orbitalZ = ZeroCurve();
+                vel.radial = ZeroCurve();
+
+                vel.speedModifier = ConstantCurve(config.velocityOverLifetime.speedModifier);
             }
 
             // Noise module
@@ -134,6 +142,7 @@ namespace TomatoFighters.Editor.VFX
             }
 
             // --- Task A1: Force over Lifetime ---
+            // All three axes must use the same mode — set all as curves (zero curve for missing axes)
             if (config.forceOverLifetime != null &&
                 (HasPoints(config.forceOverLifetime.x) ||
                  HasPoints(config.forceOverLifetime.y) ||
@@ -144,12 +153,12 @@ namespace TomatoFighters.Editor.VFX
                 force.space = ParseSimulationSpace(config.forceOverLifetime.space);
                 force.randomized = config.forceOverLifetime.randomized;
 
-                if (HasPoints(config.forceOverLifetime.x))
-                    force.x = BuildCurve(config.forceOverLifetime.x);
-                if (HasPoints(config.forceOverLifetime.y))
-                    force.y = BuildCurve(config.forceOverLifetime.y);
-                if (HasPoints(config.forceOverLifetime.z))
-                    force.z = BuildCurve(config.forceOverLifetime.z);
+                force.x = HasPoints(config.forceOverLifetime.x)
+                    ? BuildCurve(config.forceOverLifetime.x) : ZeroCurve();
+                force.y = HasPoints(config.forceOverLifetime.y)
+                    ? BuildCurve(config.forceOverLifetime.y) : ZeroCurve();
+                force.z = HasPoints(config.forceOverLifetime.z)
+                    ? BuildCurve(config.forceOverLifetime.z) : ZeroCurve();
             }
 
             // --- Task A1: Limit Velocity over Lifetime ---
@@ -345,7 +354,7 @@ namespace TomatoFighters.Editor.VFX
 
             // Renderer
             var renderer = go.GetComponent<ParticleSystemRenderer>();
-            renderer.material = AssetDatabase.GetBuiltinExtraResource<Material>(
+            renderer.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>(
                 "Default-Particle.mat");
 
             if (config.renderer != null)
@@ -360,7 +369,7 @@ namespace TomatoFighters.Editor.VFX
             // Trail material uses the same material as the main renderer
             if (config.trails != null && config.trails.lifetime > 0)
             {
-                renderer.trailMaterial = renderer.material;
+                renderer.trailMaterial = renderer.sharedMaterial;
             }
 
             return go;
@@ -371,6 +380,18 @@ namespace TomatoFighters.Editor.VFX
         private static bool HasPoints(CurvePoint[] points)
         {
             return points != null && points.Length > 0;
+        }
+
+        private static ParticleSystem.MinMaxCurve ZeroCurve()
+        {
+            return new ParticleSystem.MinMaxCurve(1f,
+                new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 0f)));
+        }
+
+        private static ParticleSystem.MinMaxCurve ConstantCurve(float value)
+        {
+            return new ParticleSystem.MinMaxCurve(value,
+                new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 1f)));
         }
 
         private static Color ToColor(ColorRGBA c)

@@ -33,6 +33,9 @@ namespace TomatoFighters.Editor.VFX
         public CollisionConfig collision;
 
         // Task A5: Sub Emitters
+        // NonSerialized to break recursive type reference that causes JsonUtility depth limit.
+        // Use ParticleConfigParser.Parse/ToJson instead of JsonUtility directly.
+        [System.NonSerialized]
         public SubEmitterEntry[] subEmitters;
     }
 

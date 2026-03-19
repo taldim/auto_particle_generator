@@ -360,6 +360,21 @@ namespace TomatoFighters.Editor.VFX
                 var platform = ClaudeApiClient.DetectPlatform(apiKeyInput);
                 EditorGUILayout.LabelField($"Platform: {ClaudeApiClient.PlatformLabel(platform)}", EditorStyles.miniLabel);
             }
+
+            EditorGUILayout.Space(4);
+            GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
+            if (GUILayout.Button("Delete All Generated Shaders", GUILayout.Height(25)))
+            {
+                if (EditorUtility.DisplayDialog("Delete Generated Shaders",
+                    "Delete all shaders and materials in Assets/Shaders/Generated?\nThis cannot be undone.",
+                    "Delete All", "Cancel"))
+                {
+                    int count = ShaderUtils.DeleteAllGenerated();
+                    AppendStatus($"Deleted {count} generated shader assets.");
+                }
+            }
+            GUI.backgroundColor = Color.white;
+
             EditorGUI.indentLevel--;
         }
 
@@ -401,7 +416,7 @@ namespace TomatoFighters.Editor.VFX
                     case Tab.Particle:
                         SetProgress(0.5f, "[1/1] Generating particles...");
                         var config = await ClaudeApiClient.SendPrompt(BuildFullPrompt());
-                        lastParticleJson = JsonUtility.ToJson(config, true);
+                        lastParticleJson = ParticleConfigParser.ToJson(config, true);
                         lastOutputPreview = lastParticleJson;
                         ApplyParticle(config, name, null);
                         RunQualityCheck(config);
@@ -453,7 +468,7 @@ namespace TomatoFighters.Editor.VFX
                     case Tab.Particle:
                         SetProgress(0.5f, "[1/1] Refining particles...");
                         var config = await ClaudeApiClient.SendRefinement(lastParticleJson, refinementPrompt);
-                        lastParticleJson = JsonUtility.ToJson(config, true);
+                        lastParticleJson = ParticleConfigParser.ToJson(config, true);
                         lastOutputPreview = lastParticleJson;
                         ApplyParticle(config, name, null);
                         RunQualityCheck(config);
@@ -526,8 +541,8 @@ namespace TomatoFighters.Editor.VFX
                 ? $"Previous config:\n{lastParticleJson}\n\nEffect: {userPrompt}\nShader: {material.shader.name}\nRefinement: {refinementPrompt}\n\nReturn the complete updated ParticleConfig JSON."
                 : $"Effect description: {userPrompt}\nShader being used: {material.shader.name}\n\nGenerate a ParticleConfig that works well with this shader.";
             string particleResponse = await ClaudeApiClient.SendRawPrompt(VFXPrompts.PARTICLE_SYSTEM, particleUserPrompt);
-            var config = JsonUtility.FromJson<ParticleConfig>(particleResponse);
-            lastParticleJson = JsonUtility.ToJson(config, true);
+            var config = ParticleConfigParser.Parse(particleResponse);
+            lastParticleJson = ParticleConfigParser.ToJson(config, true);
             lastOutputPreview = lastParticleJson;
 
             // Step 3: Assemble
@@ -631,8 +646,8 @@ namespace TomatoFighters.Editor.VFX
                 }
                 else
                 {
-                    var config = JsonUtility.FromJson<ParticleConfig>(response);
-                    lastParticleJson = JsonUtility.ToJson(config, true);
+                    var config = ParticleConfigParser.Parse(response);
+                    lastParticleJson = ParticleConfigParser.ToJson(config, true);
                     lastOutputPreview = lastParticleJson;
                     ApplyParticle(config, name, null);
                     RunQualityCheck(config);
@@ -790,8 +805,8 @@ namespace TomatoFighters.Editor.VFX
             {
                 string name = GetEffectName();
                 string json = ClaudeApiClient.StripMarkdownFencing(pastedResponse.Trim());
-                var config = JsonUtility.FromJson<ParticleConfig>(json);
-                lastParticleJson = JsonUtility.ToJson(config, true);
+                var config = ParticleConfigParser.Parse(json);
+                lastParticleJson = ParticleConfigParser.ToJson(config, true);
                 lastOutputPreview = lastParticleJson;
 
                 ApplyParticle(config, name, composedMaterial);
@@ -881,7 +896,7 @@ namespace TomatoFighters.Editor.VFX
                 var renderers = go.GetComponentsInChildren<ParticleSystemRenderer>(true);
                 foreach (var renderer in renderers)
                 {
-                    renderer.material = material;
+                    renderer.sharedMaterial = material;
                     renderer.trailMaterial = material;
                 }
             }

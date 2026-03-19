@@ -246,7 +246,7 @@ namespace TomatoFighters.Editor.VFX
         {
             try
             {
-                return JsonUtility.FromJson<ParticleConfig>(text);
+                return ParticleConfigParser.Parse(text);
             }
             catch (Exception e)
             {
